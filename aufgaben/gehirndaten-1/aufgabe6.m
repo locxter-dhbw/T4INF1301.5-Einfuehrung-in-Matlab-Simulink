@@ -76,6 +76,9 @@ end
 % Verdopplung der Werte außer 0 Hz und Nyquist
 Y(2:end-1) = 2 * Y(2:end-1);
 
+% Daten abschneiden
+% f_cutoff = f(f > 0.2);
+
 % Plot generieren
 figure(4);
 stem(f(2:rows2), Y(2:end), 'LineWidth', 2); % 0 Hz, d.h. Mittelwert hier unwichtig
@@ -84,3 +87,68 @@ ylabel('Amplitude');
 title('Amplitudenspektrum der EEG-Messung');
 grid('on');
 xlim([0.3 200]);
+
+% Daten filtern
+
+% Filtervariablen
+f_noise = 50;                 % Störfrequenz (z.B. 50 Hz Netzbrummen)
+bw = 2;                       % Bandbreite für Notch
+order = 4;                    % Filterordnung
+fn = fsample / 2;             % Nyquist-Frequenz
+
+% Butterworth Bandstop-Filter (48–52 Hz)
+[b1, a1] = butter(order, [(f_noise-bw)/fn, (f_noise+bw)/fn], 'stop');
+y_butter = filtfilt(b1, a1, y);
+
+% IIR Notch-Filter (49-51 Hz)
+wo = f_noise / fn;
+bw_norm = bw / fn;
+[b2, a2] = iirnotch(wo, bw_norm);
+y_notch = filtfilt(b2, a2, y);
+
+% FFTs berechnen
+Y_butter = 1/rows * abs(fft(y_butter));
+Y_notch = 1/rows * abs(fft(y_notch));
+
+% Einseitige Spektren erstellen
+Y_butter = Y_butter(1:rows2); Y_butter(2:end-1) = 2 * Y_butter(2:end-1);
+Y_notch = Y_notch(1:rows2); Y_notch(2:end-1) = 2 * Y_notch(2:end-1);
+
+% FFT-Vergleich plotten
+figure(5);
+subplot(3,1,1);
+stem(f(2:rows2), Y(2:end), 'LineWidth', 2);
+xlabel('Frequenz (Hz)');
+ylabel('Amplitude');
+title('FFT Amplitdenspektrum Rohsignal');
+grid('on');
+xlim([0.3 200]);
+subplot(3,1,2);
+stem(f(2:rows2), Y_butter(2:end), 'r', 'LineWidth', 2);
+xlabel('Frequenz (Hz)');
+ylabel('Amplitude');
+title('FFT Amplitdenspektrum Butterworth');
+grid('on');
+xlim([0.3 200]);
+subplot(3,1,3);
+stem(f(2:rows2), Y_notch(2:end), 'b', 'LineWidth', 2);
+xlabel('Frequenz (Hz)');
+ylabel('Amplitude');
+title('FFT Amplitdenspektrum Notch');
+grid('on');
+xlim([0.3 200]);
+
+% Daten plotten
+figure(6);
+subplot(3,1,1);
+plot(x, y);
+title('Rohsignal');
+xlabel('Zeit (s)'); ylabel('Messwerte');
+subplot(3,1,2);
+plot(x, y_butter, 'r');
+title('Butterworth');
+xlabel('Zeit (s)'); ylabel('Messwerte');
+subplot(3,1,3);
+plot(x, y_notch, 'b');
+title('IIR Notch');
+xlabel('Zeit (s)'); ylabel('Messwerte');
